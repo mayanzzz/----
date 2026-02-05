@@ -114,10 +114,12 @@
             pointer-events: auto; z-index: 30; text-align: right;
         }
         .api-key-wrap a {
-            font-size: 10px; letter-spacing: 2px; color: rgba(45, 212, 191, 0.4);
+            font-size: 13px; letter-spacing: 2px; color: rgba(45, 212, 191, 0.9);
             text-decoration: none; cursor: pointer;
+            padding: 6px 10px; border: 1px solid rgba(45, 212, 191, 0.35);
+            border-radius: 6px; background: rgba(45, 212, 191, 0.08);
         }
-        .api-key-wrap a:hover { color: rgba(45, 212, 191, 0.85); }
+        .api-key-wrap a:hover { color: rgba(45, 212, 191, 1); background: rgba(45, 212, 191, 0.15); border-color: rgba(45, 212, 191, 0.5); }
         .api-key-wrap { position: relative; }
         .api-key-panel {
             display: none; position: absolute; right: 0; bottom: 100%;
@@ -622,7 +624,7 @@
         async function callHeron(userMessage) {
             const apiKey = await getApiKey();
             if (!apiKey) {
-                return { action: '粒子云静默悬浮，未检测到连接', dialogue: '请设置 API Key 或启动服务。', rawContent: '' };
+                return { action: '粒子云静默悬浮，未检测到连接', dialogue: '请点右下角「设置 API Key」填写 OpenRouter Key 后即可对话。', rawContent: '' };
             }
             const historySlice = conversationHistory.slice(-MAX_HISTORY_MESSAGES);
             const messages = [

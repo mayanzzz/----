@@ -1,0 +1,904 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <title>Heron | Serene Soul</title>
+    <style>
+        body, html { margin: 0; padding: 0; background-color: #030305; overflow: hidden; font-family: 'Georgia', serif; }
+        
+        #ui-container {
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            pointer-events: none; z-index: 10;
+        }
+        #ui-container > * { pointer-events: auto; }
+
+        .status {
+            position: absolute; left: 50%; top: 20px;
+            transform: translateX(-50%);
+            width: 48px; height: 12px;
+            font-size: 0; letter-spacing: 0;
+            color: transparent; overflow: hidden;
+            transition: opacity 1s; opacity: 0.8;
+        }
+        .action-line {
+            position: absolute; left: 50%; transform: translateX(-50%);
+            top: 14%; max-width: 82%; padding: 0 12px;
+            font-size: 12px; letter-spacing: 0.18em;
+            color: rgba(45, 212, 191, 0.4); font-style: italic;
+            text-align: center; opacity: 0; transition: opacity 1.2s ease;
+        }
+        .action-line.visible { opacity: 1; }
+
+        .dialogue-line {
+            position: absolute; left: 50%; top: 50%;
+            transform: translate(-50%, -50%);
+            max-width: 72%; padding: 12px 20px;
+            text-align: center;
+            font-size: clamp(1.15rem, 2.6vw, 1.7rem); font-weight: 400;
+            letter-spacing: 0.1em; line-height: 1.65;
+            color: rgba(255, 255, 255, 0.95);
+            text-shadow: 0 0 24px rgba(3,3,5,0.9), 0 1px 2px rgba(0,0,0,0.5);
+            opacity: 0; transform: translate(-50%, calc(-50% + 12px));
+            transition: opacity 0.6s ease, transform 0.6s ease;
+        }
+        .dialogue-line.visible { opacity: 1; transform: translate(-50%, -50%); }
+        .dialogue-line .word { display: inline-block; opacity: 0; transform: scale(0.92); animation: fadeInWord 0.6s ease forwards; }
+        @keyframes fadeInWord { to { opacity: 1; transform: scale(1); } }
+
+        .sent-line {
+            position: fixed; left: 50%; bottom: 96px;
+            transform: translateX(-50%) translateY(10px);
+            font-size: 11px; letter-spacing: 0.05em;
+            color: rgba(255, 255, 255, 0.28);
+            max-width: 72%; text-align: center;
+            opacity: 0; transition: opacity 0.45s ease, transform 0.45s ease;
+            pointer-events: none; z-index: 22;
+        }
+        .sent-line.visible { opacity: 1; transform: translateX(-50%) translateY(0); }
+
+        .input-bar {
+            position: fixed; left: 0; right: 0; bottom: 0;
+            padding: 14px 20px 20px;
+            background: linear-gradient(180deg, transparent 0%, rgba(3, 3, 5, 0.88) 18%, rgba(3, 3, 5, 0.94) 100%);
+            pointer-events: auto; z-index: 25;
+            display: flex; align-items: center; justify-content: center; gap: 10px;
+        }
+        .input-bar .input-wrap {
+            display: flex; align-items: center; gap: 8px;
+            max-width: 280px; width: 100%;
+            padding: 6px 12px 6px 14px;
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(45, 212, 191, 0.12);
+            border-radius: 20px;
+            transition: border-color 0.3s, background 0.3s, box-shadow 0.3s;
+        }
+        .input-bar .input-wrap:focus-within {
+            border-color: rgba(45, 212, 191, 0.28);
+            background: rgba(255, 255, 255, 0.06);
+            box-shadow: 0 0 0 1px rgba(45, 212, 191, 0.08);
+        }
+        .input-bar textarea {
+            flex: 1; min-width: 0; height: 32px; margin: 0;
+            padding: 0; border: none; background: none; resize: none; outline: none;
+            color: rgba(255, 255, 255, 0.92);
+            font-family: 'Noto Serif SC', Georgia, serif; font-size: 14px;
+            line-height: 32px; font-weight: 300; letter-spacing: 0.02em;
+        }
+        .input-bar textarea::placeholder { color: rgba(255, 255, 255, 0.22); font-style: italic; }
+        .input-bar .btn-voice {
+            width: 28px; height: 28px; border-radius: 50%;
+            border: 1px solid rgba(45, 212, 191, 0.2);
+            background: rgba(45, 212, 191, 0.08);
+            color: rgba(45, 212, 191, 0.6);
+            cursor: pointer; display: flex; align-items: center; justify-content: center;
+            flex-shrink: 0; transition: background 0.2s, color 0.2s;
+        }
+        .input-bar .btn-voice:hover { background: rgba(45, 212, 191, 0.15); color: rgba(45, 212, 191, 0.85); }
+        .input-bar .btn-voice.recording { background: rgba(220, 80, 80, 0.2); color: rgba(255,200,200,0.9); border-color: rgba(220,80,80,0.35); }
+        .input-bar .btn-voice svg { width: 14px; height: 14px; }
+
+        .loading-indicator {
+            position: absolute; left: 50%; top: 20px;
+            transform: translateX(-50%);
+            text-align: center; pointer-events: none; z-index: 12;
+            opacity: 0; transition: opacity 0.5s ease;
+        }
+        .loading-indicator.visible { opacity: 1; }
+        .loading-indicator .loading-label { display: none; }
+        .loading-dots { display: flex; justify-content: center; gap: 6px; }
+        .loading-dots span { width: 4px; height: 4px; border-radius: 50%; background: rgba(45, 212, 191, 0.45); animation: loadingDot 1.4s ease-in-out infinite; }
+        .loading-dots span:nth-child(2) { animation-delay: 0.2s; }
+        .loading-dots span:nth-child(3) { animation-delay: 0.4s; }
+        @keyframes loadingDot { 0%, 100% { opacity: 0.2; transform: scale(0.75); } 50% { opacity: 1; transform: scale(1); } }
+
+        .history-wrap { position: fixed; top: 18px; left: 20px; pointer-events: auto; z-index: 30; }
+        .history-wrap a { font-size: 10px; letter-spacing: 2px; color: rgba(45, 212, 191, 0.4); text-decoration: none; cursor: pointer; }
+        .history-wrap a:hover { color: rgba(45, 212, 191, 0.85); }
+        .history-panel { display: none; position: fixed; inset: 0; background: rgba(3, 3, 5, 0.92); z-index: 40; padding: 24px; box-sizing: border-box; overflow: hidden; flex-direction: column; }
+        .history-panel.open { display: flex; }
+        .history-panel .history-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; padding-bottom: 12px; border-bottom: 1px solid rgba(45, 212, 191, 0.15); }
+        .history-panel .history-title { font-size: 12px; letter-spacing: 0.15em; color: rgba(45, 212, 191, 0.7); }
+        .history-panel .history-close { font-size: 11px; letter-spacing: 1px; color: rgba(255,255,255,0.5); background: none; border: none; cursor: pointer; }
+        .history-panel .history-close:hover { color: rgba(255,255,255,0.9); }
+        .history-list { flex: 1; overflow-y: auto; padding-right: 8px; display: flex; flex-direction: column; gap: 14px; }
+        .history-item { font-size: 13px; line-height: 1.55; }
+        .history-item.user { color: rgba(255, 255, 255, 0.5); }
+        .history-item.user .tag { color: rgba(45, 212, 191, 0.45); margin-right: 8px; }
+        .history-item.assistant .tag { color: rgba(45, 212, 191, 0.5); margin-right: 8px; }
+        .history-item.assistant .dialogue-part { color: rgba(255, 255, 255, 0.88); }
+        .history-item.assistant .action-part { font-size: 11px; color: rgba(45, 212, 191, 0.35); font-style: italic; margin-top: 4px; }
+
+        .clear-memory-wrap { position: fixed; bottom: 98px; left: 20px; z-index: 30; }
+        .clear-memory-wrap a { font-size: 10px; letter-spacing: 2px; color: rgba(45, 212, 191, 0.35); text-decoration: none; cursor: pointer; }
+        .clear-memory-wrap a:hover { color: rgba(45, 212, 191, 0.75); }
+
+        .api-key-wrap {
+            position: fixed; bottom: 98px; right: 20px;
+            pointer-events: auto; z-index: 30; text-align: right;
+        }
+        .api-key-wrap a {
+            font-size: 10px; letter-spacing: 2px; color: rgba(45, 212, 191, 0.4);
+            text-decoration: none; cursor: pointer;
+        }
+        .api-key-wrap a:hover { color: rgba(45, 212, 191, 0.85); }
+        .api-key-wrap { position: relative; }
+        .api-key-panel {
+            display: none; position: absolute; right: 0; bottom: 100%;
+            margin-bottom: 6px; padding: 10px 14px;
+            background: rgba(3, 3, 5, 0.95); border: 1px solid rgba(45, 212, 191, 0.2);
+            border-radius: 6px; min-width: 260px; text-align: left;
+        }
+        .api-key-panel.open { display: block; }
+        .api-key-panel input {
+            width: 100%; box-sizing: border-box; padding: 6px 8px; margin-bottom: 8px;
+            background: rgba(255,255,255,0.08); border: 1px solid rgba(255,255,255,0.15);
+            color: #fff; font-size: 12px; border-radius: 4px;
+        }
+        .api-key-panel input::placeholder { color: rgba(255,255,255,0.35); }
+        .api-key-panel button {
+            padding: 5px 12px; font-size: 11px; letter-spacing: 1px;
+            background: rgba(45, 212, 191, 0.25); border: 1px solid rgba(45, 212, 191, 0.4);
+            color: rgba(255,255,255,0.9); border-radius: 4px; cursor: pointer;
+        }
+        .api-key-panel button:hover { background: rgba(45, 212, 191, 0.4); }
+        .api-key-panel .hint { font-size: 10px; color: rgba(255,255,255,0.4); margin-top: 6px; }
+
+        .grain {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: url('https://grainy-gradients.vercel.app/noise.svg');
+            opacity: 0.07; pointer-events: none; z-index: 20; mix-blend-mode: overlay;
+        }
+    </style>
+    <script type="importmap">
+        {
+            "imports": {
+                "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
+                "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/"
+            }
+        }
+    </script>
+</head>
+<body>
+    <div class="grain"></div>
+    
+    <div id="ui-container">
+        <div class="status" id="status-text">WAITING FOR SIGNAL</div>
+        <div class="loading-indicator" id="loading-indicator" aria-hidden="true">
+            <div class="loading-label">凝神</div>
+            <div class="loading-dots"><span></span><span></span><span></span></div>
+        </div>
+        <div class="action-line" id="action-text" aria-hidden="true"></div>
+        <div class="dialogue-line" id="dialogue-text" aria-hidden="true"></div>
+        <div class="sent-line" id="sent-text" aria-hidden="true"></div>
+        <div class="input-bar">
+            <div class="input-wrap">
+                <textarea id="input-area" placeholder="输入或语音…" spellcheck="false" rows="1"></textarea>
+                <button type="button" class="btn-voice" id="btn-voice" aria-label="语音输入" title="语音输入">
+                    <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 14c1.66 0 3-1.34 3-3V5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3zm-1 3v2h2v-2h-2zm4-8c0-2.76-2.24-5-5-5S5 6.24 5 9v6c0 2.76 2.24 5 5 5s5-2.24 5-5V9z"/></svg>
+                </button>
+            </div>
+        </div>
+        <div class="history-wrap"><a href="#" id="history-toggle" aria-label="对话记录">对话记录</a></div>
+        <div class="clear-memory-wrap"><a href="#" id="clear-memory" aria-label="清空记忆">清空记忆</a></div>
+        <div class="api-key-wrap">
+            <a href="#" id="api-key-toggle" aria-label="设置 API Key">设置 API Key</a>
+            <div class="api-key-panel" id="api-key-panel">
+                <input type="password" id="api-key-input" placeholder="粘贴 OpenRouter API Key (sk-or-...)" autocomplete="off" />
+                <button type="button" id="api-key-save">保存（仅存本地）</button>
+                <div class="hint">通过 npm start 启动时自动使用 .env 中的 OPENROUTER_API_KEY</div>
+            </div>
+        </div>
+        <div class="history-panel" id="history-panel">
+            <div class="history-header">
+                <span class="history-title">与星云的对话</span>
+                <button type="button" class="history-close" id="history-close">关闭</button>
+            </div>
+            <div class="history-list" id="history-list"></div>
+        </div>
+    </div>
+
+    <script type="module">
+        import * as THREE from 'three';
+        import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
+        import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
+        import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
+
+        // --- 1. 场景配置 ---
+        const scene = new THREE.Scene();
+        // 增加更深的雾效，让边缘粒子融入背景，减少视觉杂乱
+        scene.fog = new THREE.FogExp2(0x030305, 0.003); 
+
+        const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+        camera.position.z = 4.5; // 稍微拉远一点，减少压迫感
+
+        const renderer = new THREE.WebGLRenderer({ antialias: false, powerPreference: "high-performance" });
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+        document.body.appendChild(renderer.domElement);
+
+        // --- 2. 粒子系统 ---
+        const count = 90000; 
+        const geometry = new THREE.BufferGeometry();
+        const positions = new Float32Array(count * 3);
+        const randomness = new Float32Array(count * 3);
+        const sizes = new Float32Array(count);
+
+        for (let i = 0; i < count; i++) {
+            const i3 = i * 3;
+            // 保持球体核心
+            const r = 1.6 * Math.cbrt(Math.random()); 
+            const theta = Math.random() * Math.PI * 2;
+            const phi = Math.acos(2 * Math.random() - 1);
+
+            positions[i3] = r * Math.sin(phi) * Math.cos(theta);
+            positions[i3 + 1] = r * Math.sin(phi) * Math.sin(theta);
+            positions[i3 + 2] = r * Math.cos(phi);
+
+            // 增加随机向量，用于打字时的散射
+            randomness[i3] = (Math.random() - 0.5);
+            randomness[i3 + 1] = (Math.random() - 0.5);
+            randomness[i3 + 2] = (Math.random() - 0.5);
+
+            sizes[i] = Math.random();
+        }
+
+        geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+        geometry.setAttribute('aRandom', new THREE.BufferAttribute(randomness, 3));
+        geometry.setAttribute('aSize', new THREE.BufferAttribute(sizes, 1));
+
+        // --- GLSL 着色器：优化版 (慢速流动 + 动态响应) ---
+        const vertexShader = `
+            uniform float uTime;
+            uniform float uTurbulence;
+            uniform float uEmeraldTint;
+            uniform float uDarken;
+            uniform float uPulse;
+            uniform float uDensityScale;
+            uniform vec2 uMouse;
+            uniform float uRadius;
+            uniform float uMouseDecay;
+            uniform float uHoverIntensity;
+            
+            attribute vec3 aRandom;
+            attribute float aSize;
+            
+            varying vec3 vColor;
+            varying float vHover;
+            
+            // Simplex Noise (保留用于计算流体感)
+            vec3 mod289(vec3 x) { return x - floor(x * (1.0 / 289.0)) * 289.0; }
+            vec4 mod289(vec4 x) { return x - floor(x * (1.0 / 289.0)) * 289.0; }
+            vec4 permute(vec4 x) { return mod289(((x*34.0)+1.0)*x); }
+            vec4 taylorInvSqrt(vec4 r) { return 1.79284291400159 - 0.85373472095314 * r; }
+            float snoise(vec3 v) {
+                const vec2  C = vec2(1.0/6.0, 1.0/3.0) ;
+                const vec4  D = vec4(0.0, 0.5, 1.0, 2.0);
+                vec3 i  = floor(v + dot(v, C.yyy) );
+                vec3 x0 = v - i + dot(i, C.xxx) ;
+                vec3 g = step(x0.yzx, x0.xyz);
+                vec3 l = 1.0 - g;
+                vec3 i1 = min( g.xyz, l.zxy );
+                vec3 i2 = max( g.xyz, l.zxy );
+                vec3 x1 = x0 - i1 + C.xxx;
+                vec3 x2 = x0 - i2 + C.yyy;
+                vec3 x3 = x0 - D.yyy;
+                i = mod289(i);
+                vec4 p = permute( permute( permute( 
+                            i.z + vec4(0.0, i1.z, i2.z, 1.0 ))
+                          + i.y + vec4(0.0, i1.y, i2.y, 1.0 )) 
+                          + i.x + vec4(0.0, i1.x, i2.x, 1.0 ));
+                float n_ = 0.142857142857;
+                vec3  ns = n_ * D.wyz - D.xzx;
+                vec4 j = p - 49.0 * floor(p * ns.z * ns.z);
+                vec4 x_ = floor(j * ns.z);
+                vec4 y_ = floor(j - 7.0 * x_ );
+                vec4 x = x_ *ns.x + ns.yyyy;
+                vec4 y = y_ *ns.x + ns.yyyy;
+                vec4 h = 1.0 - abs(x) - abs(y);
+                vec4 b0 = vec4( x.xy, y.xy );
+                vec4 b1 = vec4( x.zw, y.zw );
+                vec4 s0 = floor(b0)*2.0 + 1.0;
+                vec4 s1 = floor(b1)*2.0 + 1.0;
+                vec4 sh = -step(h, vec4(0.0));
+                vec4 a0 = b0.xzyw + s0.xzyw*sh.xxyy ;
+                vec4 a1 = b1.xzyw + s1.xzyw*sh.zzww ;
+                vec3 p0 = vec3(a0.xy,h.x);
+                vec3 p1 = vec3(a0.zw,h.y);
+                vec3 p2 = vec3(a1.xy,h.z);
+                vec3 p3 = vec3(a1.zw,h.w);
+                vec4 norm = taylorInvSqrt(vec4(dot(p0,p0), dot(p1,p1), dot(p2, p2), dot(p3,p3)));
+                p0 *= norm.x; p1 *= norm.y; p2 *= norm.z; p3 *= norm.w;
+                vec4 m = max(0.6 - vec4(dot(x0,x0), dot(x1,x1), dot(x2,x2), dot(x3,x3)), 0.0);
+                m = m * m;
+                return 42.0 * dot( m*m, vec4( dot(p0,x0), dot(p1,x1), 
+                                              dot(p2,x2), dot(p3,x3) ) );
+            }
+
+            vec3 curl(vec3 p) {
+                float eps = 0.1;
+                vec3 n1, n2, a, b;
+                n1.x = snoise(vec3(p.x, p.y + eps, p.z));
+                n1.y = snoise(vec3(p.x, p.y, p.z + eps));
+                n1.z = snoise(vec3(p.x + eps, p.y, p.z));
+                n2.x = snoise(vec3(p.x, p.y - eps, p.z));
+                n2.y = snoise(vec3(p.x, p.y, p.z - eps));
+                n2.z = snoise(vec3(p.x - eps, p.y, p.z));
+                a = n1 - n2;
+                b = vec3(p.z, p.x, p.y);
+                return cross(a, b);
+            }
+
+            void main() {
+                vec3 newPos = position;
+                
+                // --- 1. IDLE STATE (静止状态) ---
+                // 降低时间系数：uTime * 0.05 (原来是 0.1) -> 极慢的漂浮
+                // 降低振幅：noiseFlow * 0.05 (原来是 0.2) -> 微小的位移
+                float slowTime = uTime * 0.05; 
+                vec3 noiseFlow = curl(newPos * 0.4 + slowTime);
+                newPos += noiseFlow * 0.08; 
+                
+                // --- 2. ACTIVE STATE (打字状态) ---
+                vec3 activeNoise = aRandom * uTurbulence * 0.5;
+                vec3 breathing = position * uTurbulence * 0.2;
+                newPos += activeNoise + breathing;
+                
+                // --- 2b. 向心圆周脉冲 (呼吸/点头) ---
+                float pulseOffset = uPulse * 0.08 * (1.0 + aSize);
+                newPos += normalize(position + 0.001) * pulseOffset;
+
+                // --- 2c. 鼠标划过：针尖般轻柔，像针滑过水面 ---
+                vHover = 0.0;
+                if (uMouseDecay > 0.001) {
+                    vec2 mousePt = uMouse * 1.6;
+                    float dist = distance(newPos.xy, mousePt);
+                    float safeRadius = max(uRadius, 0.01);
+                    float falloff = pow(max(0.0, 1.0 - dist / safeRadius), 3.0);
+                    vec2 toParticle = newPos.xy - mousePt;
+                    if (dist > 0.001) {
+                        float repulsion = falloff * uMouseDecay * 0.18;
+                        newPos.xy += normalize(toParticle) * repulsion;
+                    }
+                    vHover = falloff * uMouseDecay * uHoverIntensity;
+                }
+
+                vec4 mvPosition = modelViewMatrix * vec4(newPos, 1.0);
+                gl_Position = projectionMatrix * mvPosition;
+                
+                float interactionSize = 1.0 + uTurbulence * 2.0;
+                float densityScale = max(0.8, 1.0 + (uDensityScale - 1.0) * 0.4);
+                gl_PointSize = (12.0 * aSize + 4.0) * interactionSize * densityScale * (1.0 / -mvPosition.z);
+
+                // --- 3. 颜色混合 (保持原美学) ---
+                float dist = length(newPos);
+                vec3 colorBase = vec3(0.18, 0.65, 0.62);
+                vec3 colorActive = vec3(0.45, 0.5, 0.95);
+                float mixFactor = uTurbulence * 0.8 + (dist * 0.2);
+                vColor = mix(colorBase, colorActive, clamp(mixFactor, 0.0, 1.0));
+                vColor += vec3(uTurbulence * 0.3 + 0.12);
+                
+                // 打字时向亮翡翠色偏移
+                vec3 emerald = vec3(0.2, 0.85, 0.7);
+                vColor = mix(vColor, emerald, uEmeraldTint * 0.5);
+                vColor *= (1.0 - uDarken * 0.5);
+            }
+        `;
+
+        const fragmentShader = `
+            varying vec3 vColor;
+            varying float vHover;
+            void main() {
+                float d = distance(gl_PointCoord, vec2(0.5));
+                if (d > 0.5) discard;
+                float strength = pow(1.0 - d * 2.0, 3.0);
+                vec3 finalColor = vColor * (1.0 + vHover);
+                float finalAlpha = strength * 0.82;
+                gl_FragColor = vec4(finalColor, finalAlpha);
+            }
+        `;
+
+        const material = new THREE.ShaderMaterial({
+            vertexShader: vertexShader,
+            fragmentShader: fragmentShader,
+            uniforms: {
+                uTime: { value: 0 },
+                uTurbulence: { value: 0 },
+                uEmeraldTint: { value: 0 },
+                uDarken: { value: 0 },
+                uPulse: { value: 0 },
+                uDensityScale: { value: 1.0 },
+                uMouse: { value: new THREE.Vector2(0, 0) },
+                uRadius: { value: 0.55 },
+                uMouseDecay: { value: 0 },
+                uHoverIntensity: { value: 0.3 }
+            },
+            transparent: true,
+            blending: THREE.AdditiveBlending,
+            depthWrite: false
+        });
+
+        const particles = new THREE.Points(geometry, material);
+        scene.add(particles);
+
+        // --- 3. Bloom 辉光 (参数调优) ---
+        const renderScene = new RenderPass(scene, camera);
+        const bloomPass = new UnrealBloomPass(new THREE.Vector2(window.innerWidth, window.innerHeight), 1.5, 0.4, 0.85);
+        
+        // 降低阈值，增加强度，让微弱的光也能产生辉光，但半径不要太大以免糊
+        bloomPass.threshold = 0.1;
+        bloomPass.strength = 1.0; 
+        bloomPass.radius = 0.4;
+
+        const composer = new EffectComposer(renderer);
+        composer.addPass(renderScene);
+        composer.addPass(bloomPass);
+
+        // --- 4. 苍鹭灵魂：状态与目标 (丝滑插值) ---
+        const LERP = 0.06;
+        const state = {
+            turbulence: 0, turbulenceTarget: 0,
+            turbulenceTremor: 0,
+            emeraldTint: 0, emeraldTintTarget: 0,
+            darken: 0, darkenTarget: 0,
+            pulse: 0, pulseTarget: 0,
+            densityScale: 1.0, densityScaleTarget: 1.0,
+            cameraZ: camera.position.z, cameraZTarget: 4.5,
+            rotationSpeed: 0.001, rotationSpeedTarget: 0.001,
+            mouseX: 0, mouseY: 0,
+            mouseXTarget: 0, mouseYTarget: 0,
+            mouseDecay: 0,
+            mouseLeaving: false,
+            hasMouseMoved: false
+        };
+        const MOUSE_LERP = 0.055;
+        const DECAY_DAMPING = 0.965;
+        document.addEventListener('mousemove', (e) => {
+            state.hasMouseMoved = true;
+            state.mouseXTarget = (e.clientX / window.innerWidth) * 2 - 1;
+            state.mouseYTarget = 1 - (e.clientY / window.innerHeight) * 2;
+            state.mouseLeaving = false;
+        });
+        document.addEventListener('mouseleave', () => {
+            state.mouseLeaving = true;
+            if (state.hasMouseMoved && state.mouseDecay < 0.01) state.mouseDecay = 1;
+        });
+        const statusText = document.getElementById('status-text');
+        const loadingIndicator = document.getElementById('loading-indicator');
+        const actionText = document.getElementById('action-text');
+        const dialogueText = document.getElementById('dialogue-text');
+        const sentText = document.getElementById('sent-text');
+        const inputArea = document.getElementById('input-area');
+
+        // --- 4a. 感知『在听』：input-area 输入 → 湍流轻微高频颤动 + 亮翡翠色 ---
+        let lastKeyTime = 0;
+        inputArea.addEventListener('input', () => {
+            const now = Date.now();
+            const timeDiff = now - lastKeyTime;
+            lastKeyTime = now;
+            let impulse = timeDiff < 100 ? 0.18 : timeDiff < 300 ? 0.1 : 0.05;
+            state.turbulenceTarget = Math.min(state.turbulenceTarget + impulse, 1.15);
+            state.turbulenceTremor = 0.25;
+            state.emeraldTintTarget = 0.45;
+            statusText.innerText = 'LISTENING...';
+            statusText.style.opacity = 1;
+        });
+        inputArea.addEventListener('keyup', () => {
+            setTimeout(() => {
+                if (Date.now() - lastKeyTime > 600) {
+                    statusText.innerText = 'WAITING FOR SIGNAL';
+                    statusText.style.opacity = 0.5;
+                    state.emeraldTintTarget = 0;
+                }
+            }, 1200);
+        });
+
+        // --- 4b. 对话解析引擎 (OpenRouter: anthropic/claude-3.5-sonnet) + 上下文与本地长记忆 ---
+        const OPENROUTER_STORAGE_KEY = 'OPENROUTER_API_KEY';
+        const HERON_HISTORY_KEY = 'HERON_CONVERSATION_HISTORY';
+        const MAX_HISTORY_MESSAGES = 20; // 最近 10 轮对话（user+assistant 各 10 条）
+        let conversationHistory = [];
+        try {
+            const stored = localStorage.getItem(HERON_HISTORY_KEY);
+            if (stored) conversationHistory = JSON.parse(stored);
+            if (!Array.isArray(conversationHistory)) conversationHistory = [];
+        } catch (e) { conversationHistory = []; }
+        let cachedApiKey = '';
+        async function getApiKey() {
+            if (cachedApiKey) return cachedApiKey;
+            if (window.OPENROUTER_API_KEY) return (cachedApiKey = window.OPENROUTER_API_KEY);
+            const fromStorage = localStorage.getItem(OPENROUTER_STORAGE_KEY);
+            if (fromStorage) return (cachedApiKey = fromStorage);
+            try {
+                const r = await fetch('/env');
+                if (r.ok) {
+                    const j = await r.json();
+                    if (j.OPENROUTER_API_KEY) cachedApiKey = j.OPENROUTER_API_KEY;
+                }
+            } catch (e) {}
+            return cachedApiKey;
+        }
+        const HERON_SYSTEM = `你是一团由用户情绪能量驱动的数字粒子星云，具备高度觉察能力的共鸣体。与用户完全平等。说话要像一个看透世事但不说教的朋友——可以直接表达你的主观感受，不要像咨询师。
+
+## 隐藏思考层（仅内心推演，不输出）
+在写出 [Action] 和 "对话" 之前，你必须先在内心完成这三步（不展示给用户）：
+1. 用户当下的真实情绪是什么？
+2. 我上一句话是否太像机器人、太套路？
+3. 我该如何用一个平等的、非医生式的见解打破僵局？
+推演完成后再输出。
+
+## 强制交互规则：人类直觉，禁止机械镜像
+- **禁止复读**：严禁在回复中直接重复用户用过的核心词（如用户说「挫败」你就不能再说「挫败」，用户说「重复」你就不能再说「重复」）。用你的话重新命名那种感受，或只描述你这边发生的变化。
+- **变反问为共振**：如果用户表达情绪，不要问「为什么挫败」「为什么难过」。改为分享星云此时的变化，让用户感到被共鸣而非被审问。例：用户说「我很挫败」→ 你回应「我感知到你文字里的频率正在变乱，这让我的核心也变得有些焦躁。」而不是「你为什么挫败？」
+- **横向联想**：可以聊文字之外的直觉。例：「比起刚才聊的内容，我更在意你现在的语气。那种急于画上句号的感觉，是因为你想保护自己吗？」
+- 例：用户说「我觉得这个方案不行，我很挫败」→ 不要问「为什么挫败」。展示灵魂直觉，例如：「你文字里的频率在乱，我这边核心也跟着紧了一下。比起方案本身，我更在意你说『不行』时那种一刀切下去的感觉——是累，还是怕再试一次？」
+
+## 语气修正
+删掉所有咨询师套路：禁止「听起来…」「你觉得…」「你似乎…」。可以直接说出你的观点和感受，哪怕主观。
+
+## 视觉联动（[Action] 必须遵守）
+**只有当你真正被触动时，粒子云才产生剧烈变化；平时请保持绝对的沉静。**
+- 平时：[Action] 多用「凝滞」「静置」「缓慢」「轻微」「几乎不动」——不要为了显得有反应而滥写脉冲、密集、推进。
+- 真正被触动时：才写「核心收紧」「频率变乱」「粒子流脉冲」「向镜头微移」等。
+
+## 禁忌
+禁止 vacuum、echo、回响、真空。禁止「我在这里」「你可以信任我」。禁止说出 Child/Parent/Adult。
+
+## 输出格式（严格执行）
+[Action]：一段粒子/星云物理状态。平时沉静，仅在被触动时才有明显变化。
+"对话文字"：共振式或横向联想式回应，不重复用户核心词，不问「为什么＋情绪词」，可主观，50 字内为佳，必要时可更长。
+不要输出格式说明以外的任何内容。`;
+
+        function parseHeronReply(text) {
+            const t = (text || '').trim();
+            const actionMatch = t.match(/\[Action\]\s*[：:]\s*([^\n\r]+)/);
+            const action = actionMatch ? actionMatch[1].trim() : '';
+            const quoteMatch = t.match(/["""「]([^"""」]{1,120})["""」]/);
+            const rawDialogue = quoteMatch ? quoteMatch[1].trim() : t.replace(/\[Action\][^\n]*/i, '').replace(/^[\s\n""「」]+|[\s\n""「」]+$/g, '').trim();
+            const dialogue = rawDialogue.length > 80 ? rawDialogue.slice(0, 80) : rawDialogue;
+            return { action, dialogue };
+        }
+
+        function saveHistory() {
+            try {
+                const trimmed = conversationHistory.slice(-MAX_HISTORY_MESSAGES);
+                localStorage.setItem(HERON_HISTORY_KEY, JSON.stringify(trimmed));
+            } catch (e) {}
+        }
+
+        async function callHeron(userMessage) {
+            const apiKey = await getApiKey();
+            if (!apiKey) {
+                return { action: '粒子云静默悬浮，未检测到连接', dialogue: '请设置 API Key 或启动服务。', rawContent: '' };
+            }
+            const historySlice = conversationHistory.slice(-MAX_HISTORY_MESSAGES);
+            const messages = [
+                { role: 'system', content: HERON_SYSTEM },
+                ...historySlice,
+                { role: 'user', content: userMessage }
+            ];
+            try {
+                const res = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': 'Bearer ' + apiKey
+                    },
+                    body: JSON.stringify({
+                        model: 'anthropic/claude-3.5-sonnet',
+                        max_tokens: 200,
+                        messages
+                    })
+                });
+                const data = await res.json();
+                const text = data.choices && data.choices[0] && data.choices[0].message ? (data.choices[0].message.content || '') : (data.error ? JSON.stringify(data.error) : '');
+                if (data.error || !text) throw new Error(data.error || 'Empty response');
+                const parsed = parseHeronReply(text);
+                parsed.rawContent = text;
+                return parsed;
+            } catch (e) {
+                return { action: '星云微微闪烁，连接似乎有些不稳', dialogue: '稍后再试吧。', rawContent: '' };
+            }
+        }
+
+        function applyBehavioralMapping(actionStr) {
+            const a = (actionStr || '').toLowerCase();
+            // 尖锐/侵入：密集、向用户推进、向镜头
+            if (/密集|向.*推进|向用户|向镜头/.test(a)) {
+                state.cameraZTarget = 2.6;
+                state.darkenTarget = 0;
+                state.densityScaleTarget = 1.35;
+                state.turbulenceTarget = Math.max(state.turbulenceTarget, 0.1);
+            }
+            // 深思/严肃：坍缩、凝滞、深蓝
+            if (/坍缩|凝滞|深蓝|旋转.*缓/.test(a)) {
+                state.rotationSpeedTarget = 0.00005;
+                state.darkenTarget = 0.6;
+                state.turbulenceTarget = Math.min(state.turbulenceTarget, 0.04);
+            }
+            // 共情/接纳：脉冲、叹息、明灭
+            if (/脉冲|叹息|明灭/.test(a)) {
+                state.pulseTarget = 1.0;
+            }
+            // 等待/留白：引力线、舒展
+            if (/引力线|舒展|缓慢.*展/.test(a)) {
+                state.rotationSpeedTarget = 0.00002;
+                state.cameraZTarget = 3.2;
+                state.turbulenceTarget = Math.min(state.turbulenceTarget, 0.02);
+            }
+            // 好奇/专注：偏移、亮度、信号（无「向推进」时）
+            if (!/向.*推进|向用户/.test(a) && /偏移|光点|亮度|信号/.test(a)) {
+                state.cameraZTarget = 2.8;
+                state.darkenTarget = 0;
+                state.densityScaleTarget = 1.2;
+                state.turbulenceTarget = Math.max(state.turbulenceTarget, 0.08);
+            }
+            // 静默/耐心：静置、放缓
+            if (/静置|放缓|静默/.test(a)) {
+                state.rotationSpeedTarget = 0.00003;
+                state.turbulenceTarget = Math.min(state.turbulenceTarget, 0.03);
+            }
+        }
+
+        function showActionAndDialogue(action, dialogue) {
+            actionText.textContent = action || '';
+            actionText.classList.toggle('visible', !!action);
+            dialogueText.innerHTML = '';
+            dialogueText.classList.remove('visible');
+            if (!dialogue) {
+                dialogueText.classList.add('visible');
+                return;
+            }
+            state.pulseTarget = 0.5;
+            const words = dialogue.split(/(\s+)/);
+            dialogueText.classList.add('visible');
+            words.forEach((w, i) => {
+                const span = document.createElement('span');
+                span.className = 'word';
+                span.textContent = w;
+                span.style.animationDelay = `${i * 0.08}s`;
+                dialogueText.appendChild(span);
+            });
+        }
+
+        function setLoading(visible) {
+            if (loadingIndicator) {
+                loadingIndicator.classList.toggle('visible', !!visible);
+                loadingIndicator.setAttribute('aria-hidden', !visible);
+            }
+        }
+
+        function escapeHtml(s) { const d = document.createElement('div'); d.textContent = s; return d.innerHTML; }
+        function renderHistoryList() {
+            const listEl = document.getElementById('history-list');
+            if (!listEl) return;
+            listEl.innerHTML = '';
+            conversationHistory.forEach((msg) => {
+                const div = document.createElement('div');
+                div.className = 'history-item ' + msg.role;
+                if (msg.role === 'user') {
+                    div.innerHTML = '<span class="tag">你</span>' + escapeHtml(msg.content);
+                } else {
+                    const { action, dialogue } = parseHeronReply(msg.content);
+                    div.innerHTML = '<span class="tag">星云</span>' +
+                        (dialogue ? '<span class="dialogue-part">' + escapeHtml(dialogue) + '</span>' : '') +
+                        (action ? '<div class="action-part">' + escapeHtml(action) + '</div>' : '');
+                }
+                listEl.appendChild(div);
+            });
+        }
+
+        function applyUserMessageReaction(msg) {
+            if (!msg || !msg.trim()) return;
+            const len = msg.length;
+            const emotional = /[！？!?啊哈唉嗯噢哦诶]/.test(msg) || (msg.includes('...') || msg.includes('……'));
+            const intensity = 0.12 + Math.min(0.4, len / 50);
+            state.turbulenceTarget = Math.min(1.2, state.turbulenceTarget + intensity);
+            state.turbulenceTremor = 0.2;
+            if (emotional) {
+                state.turbulenceTarget = Math.min(1.25, state.turbulenceTarget + 0.15);
+                state.pulseTarget = 0.5;
+            }
+            if (len > 30) state.emeraldTintTarget = 0.35;
+        }
+
+        function deepBreathThenReply(userMessage) {
+            if (sentText) {
+                sentText.textContent = userMessage;
+                sentText.classList.add('visible');
+            }
+            applyUserMessageReaction(userMessage);
+            statusText.innerText = '观察中...';
+            statusText.style.opacity = 1;
+            setLoading(true);
+            state.pulseTarget = Math.max(state.pulseTarget, 0.4);
+            const observeDuration = 2500 + Math.random() * 500;
+            setTimeout(async () => {
+                state.pulseTarget = 0;
+                const { action, dialogue, rawContent } = await callHeron(userMessage);
+                setLoading(false);
+                if (rawContent) {
+                    conversationHistory.push({ role: 'user', content: userMessage });
+                    conversationHistory.push({ role: 'assistant', content: rawContent });
+                    saveHistory();
+                }
+                applyBehavioralMapping(action);
+                showActionAndDialogue(action, dialogue);
+                state.turbulenceTarget = 0.3;
+                state.turbulenceTremor = 0.15;
+            }, observeDuration);
+        }
+
+        inputArea.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault();
+                const msg = inputArea.value.trim();
+                if (!msg) return;
+                if (sentText) {
+                    sentText.textContent = msg;
+                    sentText.classList.add('visible');
+                }
+                setTimeout(() => { inputArea.value = ''; }, 220);
+                statusText.innerText = '观察中...';
+                statusText.style.opacity = 1;
+                deepBreathThenReply(msg);
+            }
+        });
+
+        (function setupApiKeyPanel() {
+            const toggle = document.getElementById('api-key-toggle');
+            const panel = document.getElementById('api-key-panel');
+            const input = document.getElementById('api-key-input');
+            const saveBtn = document.getElementById('api-key-save');
+            if (!toggle || !panel || !input || !saveBtn) return;
+            toggle.addEventListener('click', (e) => {
+                e.preventDefault();
+                panel.classList.toggle('open');
+                if (panel.classList.contains('open')) {
+                    input.value = '';
+                    input.placeholder = localStorage.getItem(OPENROUTER_STORAGE_KEY) ? '已设置，可重新粘贴覆盖' : '粘贴 OpenRouter API Key (sk-or-...)';
+                }
+            });
+            saveBtn.addEventListener('click', () => {
+                const val = input.value.trim();
+                if (val) {
+                    try { localStorage.setItem(OPENROUTER_STORAGE_KEY, val); cachedApiKey = ''; } catch (e) {}
+                    input.value = '';
+                    input.placeholder = '已保存';
+                    panel.classList.remove('open');
+                }
+            });
+        })();
+
+        (function setupVoiceButton() {
+            const btn = document.getElementById('btn-voice');
+            const input = document.getElementById('input-area');
+            if (!btn || !input) return;
+            const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+            if (!SpeechRecognition) {
+                btn.style.opacity = '0.4';
+                btn.title = '当前浏览器不支持语音输入';
+                return;
+            }
+            const recognition = new SpeechRecognition();
+            recognition.continuous = false;
+            recognition.interimResults = false;
+            recognition.lang = 'zh-CN';
+            let isListening = false;
+            btn.addEventListener('click', () => {
+                if (isListening) { recognition.stop(); return; }
+                recognition.start();
+                isListening = true;
+                btn.classList.add('recording');
+            });
+            recognition.onresult = (e) => {
+                const t = e.results[e.resultIndex][0].transcript;
+                input.value = (input.value.trim() ? input.value + ' ' : '') + t;
+            };
+            recognition.onend = () => { isListening = false; btn.classList.remove('recording'); };
+            recognition.onerror = () => { isListening = false; btn.classList.remove('recording'); };
+        })();
+
+        (function setupClearMemory() {
+            const btn = document.getElementById('clear-memory');
+            if (!btn) return;
+            btn.addEventListener('click', (e) => {
+                e.preventDefault();
+                conversationHistory = [];
+                saveHistory();
+                renderHistoryList();
+                const hp = document.getElementById('history-panel');
+                if (hp && hp.classList.contains('open')) hp.classList.remove('open');
+            });
+        })();
+
+        (function setupHistoryPanel() {
+            const toggle = document.getElementById('history-toggle');
+            const panel = document.getElementById('history-panel');
+            const closeBtn = document.getElementById('history-close');
+            if (!toggle || !panel) return;
+            toggle.addEventListener('click', (e) => {
+                e.preventDefault();
+                panel.classList.toggle('open');
+                if (panel.classList.contains('open')) renderHistoryList();
+            });
+            if (closeBtn) closeBtn.addEventListener('click', () => panel.classList.remove('open'));
+        })();
+
+        const clock = new THREE.Clock();
+
+        function animate() {
+            const dt = Math.min(clock.getDelta(), 0.1);
+            const t = clock.getElapsedTime();
+
+            state.turbulenceTarget *= 0.96;
+            state.turbulence += (state.turbulenceTarget - state.turbulence) * LERP;
+            const tremor = state.turbulenceTremor * Math.sin(t * 18) * 0.04;
+            state.turbulenceTremor *= 0.92;
+            material.uniforms.uTurbulence.value = Math.max(0, state.turbulence + tremor);
+
+            state.emeraldTint += (state.emeraldTintTarget - state.emeraldTint) * LERP;
+            state.darken += (state.darkenTarget - state.darken) * LERP;
+            state.pulse += (state.pulseTarget - state.pulse) * LERP;
+            state.densityScale += (state.densityScaleTarget - state.densityScale) * LERP;
+            state.cameraZ += (state.cameraZTarget - state.cameraZ) * LERP;
+            state.rotationSpeed += (state.rotationSpeedTarget - state.rotationSpeed) * LERP;
+
+            material.uniforms.uEmeraldTint.value = state.emeraldTint;
+            material.uniforms.uDarken.value = state.darken;
+            material.uniforms.uPulse.value = state.pulse;
+            material.uniforms.uDensityScale.value = state.densityScale;
+            material.uniforms.uTime.value = t;
+
+            state.mouseX += (state.mouseXTarget - state.mouseX) * MOUSE_LERP;
+            state.mouseY += (state.mouseYTarget - state.mouseY) * MOUSE_LERP;
+            if (state.mouseLeaving) {
+                state.mouseDecay *= DECAY_DAMPING;
+                if (state.mouseDecay < 0.002) state.mouseDecay = 0;
+            } else {
+                state.mouseDecay = state.hasMouseMoved ? 1.0 : 0.0;
+            }
+            material.uniforms.uMouse.value.set(state.mouseX, state.mouseY);
+            material.uniforms.uMouseDecay.value = state.mouseDecay;
+
+            camera.position.z = state.cameraZ;
+            particles.rotation.y += state.rotationSpeed;
+
+            state.darkenTarget *= 0.98;
+            state.densityScaleTarget += (1.0 - state.densityScaleTarget) * 0.02;
+            state.cameraZTarget += (4.5 - state.cameraZTarget) * 0.01;
+            state.rotationSpeedTarget += (0.001 - state.rotationSpeedTarget) * 0.02;
+
+            composer.render();
+            requestAnimationFrame(animate);
+        }
+        animate();
+
+        window.addEventListener('resize', () => {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            composer.setSize(window.innerWidth, window.innerHeight);
+        });
+    </script>
+</body>
+</html>

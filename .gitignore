@@ -1,0 +1,11 @@
+# 切勿提交：内含 API Key，仅本地使用
+.env
+
+# 依赖
+node_modules/
+
+# 系统与编辑器
+.DS_Store
+*.log
+.idea/
+.vscode/

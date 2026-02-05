@@ -218,6 +218,19 @@
         }
 
         /* 清空记忆 */
+        .api-key-top-bar {
+            position: fixed; left: 0; right: 0; top: 0; z-index: 50;
+            background: rgba(3, 3, 5, 0.92); border-bottom: 1px solid rgba(45, 212, 191, 0.3);
+            padding: 10px 20px; text-align: center; pointer-events: auto;
+        }
+        .api-key-top-bar a {
+            color: rgba(45, 212, 191, 1); font-size: 14px; letter-spacing: 0.1em;
+            text-decoration: none; cursor: pointer;
+            padding: 8px 16px; border: 1px solid rgba(45, 212, 191, 0.5);
+            border-radius: 8px; background: rgba(45, 212, 191, 0.12);
+        }
+        .api-key-top-bar a:hover { background: rgba(45, 212, 191, 0.2); }
+        .api-key-top-bar.hidden { display: none; }
         .clear-memory-wrap { position: fixed; bottom: 98px; left: 20px; z-index: 30; }
         .clear-memory-wrap a {
             font-size: 10px; letter-spacing: 2px; color: rgba(45, 212, 191, 0.35);
@@ -239,6 +252,9 @@
     <div class="grain"></div>
     
     <div id="ui-container">
+        <div class="api-key-top-bar" id="api-key-top-bar">
+            首次使用请先 <a href="#" id="api-key-top-btn">设置 API Key（点这里）</a> 方可对话
+        </div>
         <div class="status" id="status-text">WAITING FOR SIGNAL</div>
         <div class="loading-indicator" id="loading-indicator" aria-hidden="true">
             <div class="loading-label">凝神</div>
@@ -296,6 +312,7 @@
         renderer.setSize(window.innerWidth, window.innerHeight);
         renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
         document.body.appendChild(renderer.domElement);
+        renderer.domElement.style.cssText = 'position:relative;z-index:0;';
 
         // --- 2. 粒子系统 ---
         const count = 90000; 
@@ -805,15 +822,19 @@
             const panel = document.getElementById('api-key-panel');
             const input = document.getElementById('api-key-input');
             const saveBtn = document.getElementById('api-key-save');
-            if (!toggle || !panel || !input || !saveBtn) return;
-            toggle.addEventListener('click', (e) => {
-                e.preventDefault();
-                panel.classList.toggle('open');
-                if (panel.classList.contains('open')) {
-                    input.value = '';
-                    input.placeholder = localStorage.getItem(OPENROUTER_STORAGE_KEY) ? '已设置，可重新粘贴覆盖' : '粘贴 OpenRouter API Key (sk-or-...)';
-                }
-            });
+            const topBar = document.getElementById('api-key-top-bar');
+            const topBtn = document.getElementById('api-key-top-btn');
+            function openPanel() {
+                if (!panel || !input) return;
+                panel.classList.add('open');
+                input.value = '';
+                input.placeholder = localStorage.getItem(OPENROUTER_STORAGE_KEY) ? '已设置，可重新粘贴覆盖' : '粘贴 OpenRouter API Key (sk-or-...)';
+                input.focus();
+            }
+            if (localStorage.getItem(OPENROUTER_STORAGE_KEY) && topBar) topBar.classList.add('hidden');
+            if (!panel || !input || !saveBtn) return;
+            if (toggle) toggle.addEventListener('click', (e) => { e.preventDefault(); openPanel(); });
+            if (topBtn) topBtn.addEventListener('click', (e) => { e.preventDefault(); openPanel(); });
             saveBtn.addEventListener('click', () => {
                 const val = input.value.trim();
                 if (val) {
@@ -821,6 +842,7 @@
                     input.value = '';
                     input.placeholder = '已保存';
                     panel.classList.remove('open');
+                    if (topBar) topBar.classList.add('hidden');
                 }
             });
         })();

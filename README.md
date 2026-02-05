@@ -2,6 +2,10 @@
 
 与「苍鹭」星云灵魂对话的交互页面。星云粒子 + OpenRouter（Claude）对话。
 
+## 在线预览（GitHub Pages）
+
+代码已推送到 GitHub。**若还没开启 Pages**：打开 [仓库 Pages 设置](https://github.com/mayanzzz/----/settings/pages) → **Source** 选 **Deploy from a branch** → **Branch** 选 **main**，**Path** 选 **/ (root)** → 点 **Save**。等 1～2 分钟后访问：**https://mayanzzz.github.io/----/** 即可。
+
 ## 使用方式
 
 - **直接打开**：用浏览器打开 `打开苍鹭之影.html`，在页面右下角「API Key」处粘贴 [OpenRouter API Key](https://openrouter.ai/keys)，即可对话。Key 仅保存在本机 localStorage，不会上传。

@@ -122,10 +122,11 @@
         .api-key-wrap a:hover { color: rgba(45, 212, 191, 1); background: rgba(45, 212, 191, 0.15); border-color: rgba(45, 212, 191, 0.5); }
         .api-key-wrap { position: relative; }
         .api-key-panel {
-            display: none; position: absolute; right: 0; bottom: 100%;
-            margin-bottom: 6px; padding: 10px 14px;
-            background: rgba(3, 3, 5, 0.95); border: 1px solid rgba(45, 212, 191, 0.2);
-            border-radius: 6px; min-width: 260px; text-align: left;
+            display: none; position: fixed; z-index: 60;
+            top: 52px; left: 50%; transform: translateX(-50%);
+            padding: 16px 20px; min-width: 280px; text-align: left;
+            background: rgba(3, 3, 5, 0.98); border: 1px solid rgba(45, 212, 191, 0.35);
+            border-radius: 10px; box-shadow: 0 8px 32px rgba(0,0,0,0.5);
         }
         .api-key-panel.open { display: block; }
         .api-key-panel input {
